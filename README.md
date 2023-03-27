@@ -116,7 +116,7 @@ A Container can be seen as a minimal virtual environment or, in simpler words, a
 
 Being written in the [Nextflow DSL2](https://www.nextflow.io/docs/latest/dsl2.html) language, this pipeline support the definition of one container per process, thus making it easy to maintain and update software dependencies. The current pipeline default configuration includes profiles (i.e., sets of configuration attributes) for [Conda](https://anaconda.org/), [Docker](https://www.docker.com/), and [Singularity](https://sylabs.io/) containers. A profile can be activated when launching the pipeline execution by using the `-profile` command line option.
 
-    ```bash
+    ```sh
     nextflow run nf-rnaseq --input <DIR> --outdir <DIR> --salmon_index <DIR> --transcriptome <FILE> -profile <conda/docker/singularity>
     ```
 
