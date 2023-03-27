@@ -45,8 +45,10 @@ commands:
 ## Usage
 
 ```bash
- $ nextflow run main.nf --help
+ nextflow run main.nf --help
+```
 
+```console
 =========================================
 nf-rnaseq: a nextflow rna-seq pipeline
 =========================================
