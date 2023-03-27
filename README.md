@@ -38,7 +38,7 @@ commands:
 
 4. Start running your own analysis
 
-    ```bash
+    ```sh
     nextflow run nf-rnaseq --input <DIR> --outdir <DIR> --salmon_index <DIR> --transcriptome <FILE> -profile <conda/docker/singularity>
     ```
 
