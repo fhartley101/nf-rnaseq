@@ -33,16 +33,17 @@ sample_names = basename(path = dirname(path = files))
 # Transcript to gene map
 tx2gene = read.table(
   file             = tx2gene_filepath,
-  header           = FALSE,
+  header           = TRUE,
   sep              = "\t",
   stringsAsFactors = FALSE
 )
 colnames(tx2gene) = c("TXNAME", "GENEID")
 
-
+# Check if transcript ids have '.' character
+ignoreTxVersion = !grepl(pattern = '.', x = tx2gene$TXNAME[1], fixed = T)
 
 # Import the data --------------------------------------------------------------
-txi <- tximport(
+txi <- tximport::tximport(
   files   = files,
   type    = "salmon",
   tx2gene = tx2gene,
@@ -57,7 +58,7 @@ gene_s = tximport::summarizeToGene(
   object              = txi,
   tx2gene             = tx2gene,
   varReduce           = FALSE,
-  ignoreTxVersion     = FALSE,
+  ignoreTxVersion     = ignoreTxVersion,
   ignoreAfterBar      = FALSE,
   countsFromAbundance = "no"
 )
@@ -65,7 +66,7 @@ gene_stpm = tximport::summarizeToGene(
   object              = txi,
   tx2gene             = tx2gene,
   varReduce           = FALSE,
-  ignoreTxVersion     = FALSE,
+  ignoreTxVersion     = ignoreTxVersion,
   ignoreAfterBar      = FALSE,
   countsFromAbundance = "scaledTPM"
 )
@@ -73,7 +74,7 @@ gene_lstpm = tximport::summarizeToGene(
   object              = txi,
   tx2gene             = tx2gene,
   varReduce           = FALSE,
-  ignoreTxVersion     = FALSE,
+  ignoreTxVersion     = ignoreTxVersion,
   ignoreAfterBar      = FALSE,
   countsFromAbundance = "lengthScaledTPM"
 )
@@ -100,6 +101,9 @@ write.table(
 
 ## Gene-level ------------------------------------------------------------------
 # Summary at gene-level
+## Save file for downstream differential gene expression analysis
+saveRDS(object = gene_s, file = file.path("tximport_gene_summary.rds"))
+## Save gene-level abundance and counts
 write.table(
   x         = gene_s$abundance,
   file      = file.path("gene_tpm.tsv"),
