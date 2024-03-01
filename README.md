@@ -89,7 +89,8 @@ Optional arguments:
     --gtf               FILEPATH            Gene Transfer Format file (can be used to generate a genemap)
     --genemap          [FILEPATH]           File containing a mapping of transcripts to genes. If the 
                                             parameter is provided without a value (i.e., --genemap),
-                                            and a GTF file is provided in input, a mapping is attempted 
+                                            and a GTF file is provided in input, a mapping is attempted
+    --salmon_libtype    STRING              Library type, used for salmon quantification (default: 'A') 
     --multiqc_config    FILEPATH            Config yaml file for MultiQC
     --outdir            DIRPATH             Output directory (default: ./results)
     --cachedir          DIRPATH             Provide a centralised cache directory for containers (default: ./work)

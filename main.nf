@@ -62,7 +62,8 @@ def helpMessage() {
             --gtf               FILEPATH            Gene Transfer Format file (can be used to generate a genemap)
             --genemap          [FILEPATH]           File containing a mapping of transcripts to genes. If the 
                                                     parameter is provided without a value (i.e., --genemap),
-                                                    and a GTF file is provided in input, a mapping is attempted 
+                                                    and a GTF file is provided in input, a mapping is attempted
+            --salmon_libtype    STRING              Library type, used for salmon quantification (default: 'A')                                         
             --multiqc_config    FILEPATH            Config yaml file for MultiQC
             --outdir            DIRPATH             Output directory (default: ./results)
             --cachedir          DIRPATH             Provide a centralised cache directory for containers (default: ./work)
@@ -115,6 +116,9 @@ def initialLogMessage() {
     if (params.decoys        ) log.info "decoys         = ${params.decoys}"
     if (params.genemap       ) log.info "genemap        = ${params.genemap}"
     if (params.salmon_index  ) log.info "salmon_index   = ${params.salmon_index}"
+
+    log.info "\nQUANTIFICATION---------------------------"   
+    if (params.salmon_libtype) log.info "salmon_libtype     = ${params.salmon_libtype}"
 
     log.info "\nRESOURCES -------------------------------"   
     if (params.max_memory    ) log.info "max_memory     = ${params.max_memory}"
@@ -254,7 +258,7 @@ workflow {
             ch_salmon_index.collect(),
             ch_transcriptome.collect(),
             ch_genemap.collect().ifEmpty(file('NO_FILE')),
-            Channel.value('A')
+            Channel.value(params.salmon_libtype)
         )
         // Update channels
         ch_salmon_multiqc = SALMON_QUANT.out.quant
