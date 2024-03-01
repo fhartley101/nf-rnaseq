@@ -31,6 +31,7 @@ process TXIMPORT_SALMON {
         path "*gene_scaled_counts.tsv"       , emit: counts_gene_scaled
         path "*transcript_tpm.tsv"           , emit: tpm_transcript
         path "*transcript_counts.tsv"        , emit: counts_transcript
+        path "*tximport_gene_summary.rds"    , emit: tximport_gene_summary
         path "versions.yml"                  , emit: versions
     
     /*********** SCRIPT ***********/
