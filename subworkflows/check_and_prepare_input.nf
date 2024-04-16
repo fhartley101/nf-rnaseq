@@ -168,7 +168,7 @@ def modules_to_run = params.modules ? "${params.modules}".split(',') : []
 include { CREATE_DECOYS_FILE } from '../modules/salmon/decoys'
 include { SALMON_INDEX       } from '../modules/salmon/index'
 include { TX2GENE            } from '../modules/genomicfeatures/tx2gene'
-
+log.info "testing"
 /*************************************************
 * WORKFLOW
 **************************************************/
