@@ -14,7 +14,6 @@ process CREATE_DECOYS_FILE {
     /*********** INPUT ***********/
     input:
         path genome
-        val decoys
     
     /*********** OUTPUT ***********/
     //Define output channels and assign identifiers
@@ -24,11 +23,7 @@ process CREATE_DECOYS_FILE {
         
     /*********** SCRIPT ***********/
     script:
-        // Output 
-        def decoys = decoys ?: "decoys.txt"
-
         // Log info
-        log.info "decoys filename ${decoys}"
         log.info "decoys outdir ${params.refdir}"
 
         // File extension 
@@ -56,10 +51,10 @@ process CREATE_DECOYS_FILE {
             ugfname=`basename "${genome}" .gz`      
             gunzip -d -k -c "${genome}" > "${genome.baseName}"
             echo "Extracting the names of the genome targets"
-            grep "^>" < "\${ugfname}" | cut -d " " -f 1 | cut -f 1 > "${decoys}"
+            grep "^>" < "\${ugfname}" | cut -d " " -f 1 | cut -f 1 > decoys
             
             echo "Editing the decoys file"
-            sed -i.bak -e 's/>//g' "${decoys}"
+            sed -i.bak -e 's/>//g' decoys
 
             cat <<-END_VERSIONS > versions.yml
             "${task.process}":
@@ -74,10 +69,10 @@ process CREATE_DECOYS_FILE {
             #!/usr/bin/env bash
             
             echo "Extracting the names of the genome targets"
-            grep "^>" < "${genome}" | cut -d " " -f 1 | cut -f 1 > "${decoys}"
+            grep "^>" < "${genome}" | cut -d " " -f 1 | cut -f 1 > decoys
 
             echo "Editing the decoys file"
-            sed -i.bak -e 's/>//g' "${decoys}"
+            sed -i.bak -e 's/>//g' decoys
 
             cat <<-END_VERSIONS > versions.yml
             "${task.process}":
