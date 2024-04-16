@@ -167,6 +167,7 @@ def modules_to_run = params.modules ? "${params.modules}".split(',') : []
 **************************************************/
 include { CREATE_DECOYS_FILE } from '../modules/salmon/decoys'
 include { SALMON_INDEX       } from '../modules/salmon/index'
+include { SALMON_DECOY_INDEX } from '../modules/salmon/decoyindex'
 include { TX2GENE            } from '../modules/genomicfeatures/tx2gene'
 
 /*************************************************
@@ -323,37 +324,52 @@ workflow CHECK_AND_PREPARE_INPUT {
                         if((params.decoys instanceof String) && file(params.decoys).exists()){
                             log.info "Decoys file found"
                             ch_decoys = Channel.fromPath(params.decoys, type: 'file')
+                    // Create decoy aware index from supplied decoys
+                            log.info "Creating decoy aware index from user supplied decoys"
+			                SALMON_DECOY_INDEX(
+                        	    ch_transcriptome,
+                        	    ch_genome,
+                        	    ch_decoys
+                            )
+                    // Output channel
+                    ch_salmon_index = SALMON_DECOY_INDEX.out.index
+                    // Update versions
+                    ch_versions = ch_versions.mix(SALMON_DECOY_INDEX.out.versions)
                         } else {
                             log.info "Decoys file not found"
                             // Create decoys file
                             CREATE_DECOYS_FILE(
-                                ch_genome,
-                                file(params.decoys).name
-                                // file(params.decoys).parent
-                            )
+                                ch_genome
+                                )
                             ch_decoys = CREATE_DECOYS_FILE.out.decoys
                             // Update versions
-                            ch_versions = ch_versions.mix(CREATE_DECOYS_FILE.out.versions) 
+                            ch_versions = ch_versions.mix(CREATE_DECOYS_FILE.out.versions)
+			                // Create decoy aware index from generated decoys
+		            	    log.info "Creating decoy aware index from generated decoys"
+                            SALMON_DECOY_INDEX(
+                                ch_transcriptome,
+                                ch_genome,
+                                ch_decoys
+                            )
+			               // Output channel
+                    	   ch_salmon_index = SALMON_DECOY_INDEX.out.index
+                    	   // Update versions
+                    	   ch_versions = ch_versions.mix(SALMON_DECOY_INDEX.out.versions) 
                         }
                     } else {
                         ch_decoys = Channel.empty()
-                    }
-
-                    // Create index
-                    SALMON_INDEX(
-                        ch_transcriptome,
-                        ch_genome,
-                        ch_decoys
-                    )
-
-                    // Output channel
-                    ch_salmon_index = SALMON_INDEX.out.index
-                    
-                    // Update versions
-                    ch_versions = ch_versions.mix(SALMON_INDEX.out.versions)     
+			            // Create decoys unaware index
+			            log.info "Creating decoy unaware index"
+                        SALMON_INDEX(
+                        	ch_transcriptome
+                            )
+			            // Output channel
+                    	ch_salmon_index = SALMON_INDEX.out.index
+                    	// Update versions
+                    	ch_versions = ch_versions.mix(SALMON_INDEX.out.versions)
+                    }    
                 }
             }
-
             //GTF
             if(params.gtf){
                 if((params.gtf instanceof String) && file(params.gtf).exists()){
