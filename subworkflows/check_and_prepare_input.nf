@@ -324,11 +324,16 @@ workflow CHECK_AND_PREPARE_INPUT {
                             log.info "Decoys file found"
                             ch_decoys = Channel.fromPath(params.decoys, type: 'file')
                         } else {
-                            log.info "Decoys file not found"
-                            // Create decoys file
-                            CREATE_DECOYS_FILE(
+				            if(params.decoys instanceof String){
+				                fn_decoys = file(params.decoys).name
+				            } else {
+					            fn_decoys = "decoys.txt"
+				            }
+                            log.info "Decoys file not found. A decoys file will be generated."
+                            // Create decoys file.
+			                CREATE_DECOYS_FILE(
                                 ch_genome,
-                                file(params.decoys).name
+                                fn_decoys
                                 // file(params.decoys).parent
                             )
                             ch_decoys = CREATE_DECOYS_FILE.out.decoys
@@ -336,14 +341,15 @@ workflow CHECK_AND_PREPARE_INPUT {
                             ch_versions = ch_versions.mix(CREATE_DECOYS_FILE.out.versions) 
                         }
                     } else {
+                        log.info "Decoys option is not selected. No decoys will be used in generating the index. This is not recommended."
                         ch_decoys = Channel.empty()
-                    }
+			        }
 
                     // Create index
                     SALMON_INDEX(
                         ch_transcriptome,
                         ch_genome,
-                        ch_decoys
+                        ch_decoys.collect().ifEmpty([])
                     )
 
                     // Output channel
