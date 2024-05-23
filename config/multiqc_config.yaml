@@ -116,6 +116,7 @@ custom_css_files: []
 run_modules:
   - custom_content
   - fastqc
+  - cutadapt
   - salmon
 
 # Change the order of MultiQC module subsection outputs
@@ -124,8 +125,26 @@ report_section_order:
     order: -1000
 
 # Specify modules that should always come at the top of the report,
-top_modules:
-  - "fastqc"
+#top_modules:
+#  - "fastqc"
+
+# Specifiy module order and force fastqc results from before and after cutadapt to be displayed separately
+module_order:
+  - custom_content
+  - fastqc:
+      name: "FastQC (raw)"
+      anchor: "raw"
+      path_filters:
+        - "fastqc/*_fastqc.zip"
+  - cutadapt
+  - fastqc:
+      name: "FastQC (trimmed)"
+      anchor: "trimmed"
+      info: "This section of the report shows FastQC results after adapter trimming."
+      target: ""
+      path_filters:
+        - "fastqc_cutadapt/*trimmed_fastqc.zip"
+  - salmon
 
 # SEARCH PATTERNS
 # Overwrite module filename search patterns. See multiqc/utils/search_patterns.yaml
