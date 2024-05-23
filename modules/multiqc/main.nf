@@ -17,8 +17,6 @@ process MULTIQC {
     input:
         path multiqc_config
         path software_versions
-        path ("fastqc/*")
-        path ("salmon/*")
     
     /*********** OUTPUT ***********/
     output:
@@ -39,7 +37,7 @@ process MULTIQC {
             -f \\
             ${args} \\
             ${multiqc_config} \\
-            .
+            ${params.outdir}
 
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":
