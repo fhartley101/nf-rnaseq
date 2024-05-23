@@ -33,7 +33,7 @@ process FASTQC {
         // echo "\nFASTQC:   ${meta}\n"
         // echo "\nFASTQC:   ${reads}\n"
         def files1 = reads1.join(' ')
-        def files2 = reads1.join(' ')
+        def files2 = reads2.join(' ')
 
         if(meta.single_end){
             """
