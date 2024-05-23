@@ -37,7 +37,7 @@ def create_channel_from_dir(String dirpath, String filext, String suffix1, Strin
             // Replace prefix, suffix and file extension
             ch_reads = ch_reads.map { 
                 it -> [
-                    it[0].replaceAll( ~/(${prefix})|(${suffix1})|(((${suffix1})?.${filext}))/, "" ),//regexp: (_1)?.fq.gz
+                    it[0].replaceAll(/(${prefix})/, "").replaceAll(/(${suffix1})/, "").replaceAll(/(${filext})/, ""),
                     it[1]
                 ]
             }
@@ -155,7 +155,7 @@ def getGtfUrl(species){
 }
 
 def supported_species = ["homo_sapiens", "hsapiens", "mus_musculus", "mus_musculus_fvbnj"]
-def supported_modules = ["fastqc", "quant", "multiqc"]
+def supported_modules = ["fastqc", "cutadapt", "fastqc_cutadapt", "quant", "multiqc"]
 def raw_reads_filext = ['fastq', 'fq', 'fastq.gz', 'fq.gz']
 def aligned_reads_filext    = ['bam', 'sam']
 def supported_filext  = raw_reads_filext + aligned_reads_filext
@@ -218,10 +218,10 @@ workflow CHECK_AND_PREPARE_INPUT {
         //Modules to run
         if( modules_to_run.size() > 0 ){
             if (! supported_modules.containsAll(modules_to_run) ){
-                error "ERROR: provided pipeline modules not matching supported types. Available options: 'fastqc', 'quant', 'multiqc'. Example: --modules fastqc,quant"
+                error "ERROR: provided pipeline modules not matching supported types. Available options: 'fastqc', 'cutadapt', 'fastqc_cutadapt', 'quant', 'multiqc'. Example: --modules fastqc,quant"
             }
         } else {
-            //error "ERROR: no pipeline module was selected to run. Available options: 'fastqc', 'quant', 'multiqc'. Example: --modules fastqc,quant"
+            //error "ERROR: no pipeline module was selected to run. Available options: 'fastqc', 'cutadapt', 'fastqc_cutadapt', 'quant', 'multiqc'. Example: --modules fastqc,quant"
             log.info "\nWARNING: no pipeline module was selected to run\n"
         }
 
@@ -324,11 +324,16 @@ workflow CHECK_AND_PREPARE_INPUT {
                             log.info "Decoys file found"
                             ch_decoys = Channel.fromPath(params.decoys, type: 'file')
                         } else {
-                            log.info "Decoys file not found"
-                            // Create decoys file
+                            if(params.decoys instanceof String){
+                                fn_decoys = file(params.decoys).name
+                            } else {
+                                fn_decoys = "decoys.txt"
+                            }
+                            log.info "Decoys file not found. A decoys file will be generated."
+                            // Create decoys file.
                             CREATE_DECOYS_FILE(
                                 ch_genome,
-                                file(params.decoys).name
+                                fn_decoys
                                 // file(params.decoys).parent
                             )
                             ch_decoys = CREATE_DECOYS_FILE.out.decoys
@@ -336,6 +341,7 @@ workflow CHECK_AND_PREPARE_INPUT {
                             ch_versions = ch_versions.mix(CREATE_DECOYS_FILE.out.versions) 
                         }
                     } else {
+                        log.info "Decoys option is not selected. No decoys will be used in generating the index. This is not recommended."
                         ch_decoys = Channel.empty()
                     }
 
@@ -343,7 +349,7 @@ workflow CHECK_AND_PREPARE_INPUT {
                     SALMON_INDEX(
                         ch_transcriptome,
                         ch_genome,
-                        ch_decoys
+                        ch_decoys.collect().ifEmpty([])
                     )
 
                     // Output channel
