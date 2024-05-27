@@ -38,51 +38,51 @@ process CUTADAPT {
         def files2 = reads2.join(' ')
 	
     if(meta.single_end){
-    log.info "Cutadapt running on single end data"
+        log.info "Cutadapt running on single end data"
 
-    """
-    #!/usr/bin/env bash
+        """
+        #!/usr/bin/env bash
 
-    cat ${cutadapt_options} > ops
-    VAR="\$(cat ops)"
+        cat ${cutadapt_options} > ops
+        VAR="\$(cat ops)"
 
-    cutadapt \\
-        -o ${meta.id}_1.trimmed.${params.filext} \\
-        ${args} \\
-        \$VAR \\
-        ${files1} 1>> ${meta.id}_info.txt
+        cutadapt \\
+            -o ${meta.id}_1.trimmed.${params.filext} \\
+            ${args} \\
+            \$VAR \\
+            ${files1} 1>> ${meta.id}_info.txt
 
-    sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
+        sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        cutadapt: \$(echo \$(cutadapt --version))
-    END_VERSIONS
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            cutadapt: \$(echo \$(cutadapt --version))
+        END_VERSIONS
 
-    """
-    } else {
-    log.info "Cutadapt running on paired end data"
+        """
+        } else {
+        log.info "Cutadapt running on paired end data"
 
-    """
-    #!/usr/bin/env bash
+        """
+        #!/usr/bin/env bash
 
-    cat ${cutadapt_options} > ops
-    VAR="\$(cat ops)"
+        cat ${cutadapt_options} > ops
+        VAR="\$(cat ops)"
 	
-    cutadapt \\
-        -o ${meta.id}_1.trimmed.${params.filext} \\
-        -p ${meta.id}_2.trimmed.${params.filext} \\
-        ${args} \\
-        \$VAR \\
-        ${files1} ${files2} 1>> ${meta.id}_info.txt
+        cutadapt \\
+            -o ${meta.id}_1.trimmed.${params.filext} \\
+            -p ${meta.id}_2.trimmed.${params.filext} \\
+            ${args} \\
+            \$VAR \\
+            ${files1} ${files2} 1>> ${meta.id}_info.txt
 
-    sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
+        sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
 	
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        cutadapt: \$(echo \$(cutadapt --version))
-    END_VERSIONS
-    """
+        cat <<-END_VERSIONS > versions.yml
+        "${task.process}":
+            cutadapt: \$(echo \$(cutadapt --version))
+        END_VERSIONS
+        """
     }
     
 }
