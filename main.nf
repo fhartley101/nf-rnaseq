@@ -175,13 +175,13 @@ def modules_to_run = params.modules ? "${params.modules}".split(',') : []
 /*************************************************
 * IMPORT MODULES
 **************************************************/
-include { FASTQC            } from './modules/fastqc'
-include { MULTIQC           } from './modules/multiqc'
-include { CUTADAPT	         }	from './modules/cutadapt'
-include { FASTQC_CUTADAPT   } from './modules/fastqc_cutadapt'
-include { SALMON_QUANT      } from './modules/salmon/quant'
-include { TXIMPORT_SALMON   } from './modules/tximport/salmon'
-include { SOFTWARE_VERSIONS } from './modules/custom/swversions'
+include { FASTQC                    } from './modules/fastqc'
+include { MULTIQC                   } from './modules/multiqc'
+include { CUTADAPT	            } from './modules/cutadapt'
+include { FASTQC as FASTQC_CUTADAPT } from './modules/fastqc'
+include { SALMON_QUANT              } from './modules/salmon/quant'
+include { TXIMPORT_SALMON           } from './modules/tximport/salmon'
+include { SOFTWARE_VERSIONS         } from './modules/custom/swversions'
 
 /*************************************************
 * IMPORT SUBWORKFLOWS
@@ -232,10 +232,12 @@ workflow {
     //---------------------------------------------
     // FastQC
     //---------------------------------------------
-
+    
+    ch_fastqc_dir = 'fastqc'
     if(modules_to_run.contains('fastqc')){
         FASTQC(
-            ch_reads
+            ch_reads,
+            ch_fastqc_dir
         )
 
         // Update versions
@@ -259,8 +261,10 @@ workflow {
             exit 1, 'ERROR: The fastqc and fastqc_cutadapt modules may not be specified together unless the cutadapt module is also present' 
         }
         if(!modules_to_run.contains('fastqc') && params.input.endsWith('cutadapt/')){
+            ch_fastqc_dir = 'fastqc_cutadapt'
             FASTQC_CUTADAPT(
-                ch_reads
+                ch_reads,
+                ch_fastqc_dir
             )
             // Update versions
             ch_versions = ch_versions.mix(FASTQC_CUTADAPT.out.versions.first())
@@ -280,8 +284,10 @@ workflow {
         ch_versions = ch_versions.mix(CUTADAPT.out.versions.first())
 
         if(modules_to_run.contains('fastqc_cutadapt')){
+            ch_fastqc_dir = 'fastqc_cutadapt'
             FASTQC_CUTADAPT(
-                ch_reads
+                ch_reads,
+                ch_fastqc_dir
             )
             // Update versions
             ch_versions = ch_versions.mix(FASTQC_CUTADAPT.out.versions.first())
@@ -340,7 +346,7 @@ workflow {
         //so that they are correctly staged.
         MULTIQC(
             ch_multiqc_config,
-            SOFTWARE_VERSIONS.out.multiqc_yml.collect()
+            SOFTWARE_VERSIONS.out.multiqc_yml.collect().ifEmpty(file('NO_FILE'))
         )
         // Update channels
         ch_versions = ch_versions.mix(MULTIQC.out.versions)
