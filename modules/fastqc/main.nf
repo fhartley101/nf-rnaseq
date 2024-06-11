@@ -13,11 +13,12 @@ process FASTQC {
         'https://depot.galaxyproject.org/singularity/fastqc:0.11.9--hdfd78af_1' : 
         'quay.io/biocontainers/fastqc:0.11.9--hdfd78af_1'}"
     //Specifies where to publish output
-    publishDir path: "${params.outdir}/fastqc" , mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
+    publishDir path: "${params.outdir}/${fastqc_dir}" , mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
     
     /*********** INPUT ***********/
     input:
         tuple val(meta), path(reads1), path(reads2)
+        val fastqc_dir
     
     /*********** OUTPUT ***********/
     //Define output channels and assign identifiers
@@ -33,7 +34,7 @@ process FASTQC {
         // echo "\nFASTQC:   ${meta}\n"
         // echo "\nFASTQC:   ${reads}\n"
         def files1 = reads1.join(' ')
-        def files2 = reads1.join(' ')
+        def files2 = reads2.join(' ')
 
         if(meta.single_end){
             """
