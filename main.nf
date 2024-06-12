@@ -256,31 +256,13 @@ workflow {
     //---------------------------------------------
     // Adapter trimming
     //---------------------------------------------    
-    if(modules_to_run.contains('fastqc_cutadapt') && !modules_to_run.contains('cutadapt')) {
-        if(modules_to_run.contains('fastqc')){
-            exit 1, 'ERROR: The fastqc and fastqc_cutadapt modules may not be specified together unless the cutadapt module is also present' 
-        }
-        if(!modules_to_run.contains('fastqc') && params.input.endsWith('cutadapt/')){
-            ch_fastqc_dir = 'fastqc_cutadapt'
-            FASTQC_CUTADAPT(
-                ch_reads,
-                ch_fastqc_dir
-            )
-            // Update versions
-            ch_versions = ch_versions.mix(FASTQC_CUTADAPT.out.versions.first())
-        } else {
-            exit 1, 'ERROR: The fastqc_cutadapt module is specified without the cutadapt module, and the input files are not stored in a cutadapt/ directory. Update the input directory and the suffix parameters to feed the trimmed files into fastqc_cutadapt directly.'
-        }
-    }
 
     if(modules_to_run.contains('cutadapt')){
-        ch_cutadapt_options = Channel.fromPath(params.cutadapt_options, type: 'file')
-        CUTADAPT(
-            ch_reads,
-            ch_cutadapt_options.collect()
+	CUTADAPT(
+            ch_reads
         )
         // Update 
-        ch_reads = CUTADAPT.out.reads
+	ch_reads = CUTADAPT.out.reads
         ch_versions = ch_versions.mix(CUTADAPT.out.versions.first())
 
         if(modules_to_run.contains('fastqc_cutadapt')){
@@ -291,6 +273,24 @@ workflow {
             )
             // Update versions
             ch_versions = ch_versions.mix(FASTQC_CUTADAPT.out.versions.first())
+        }
+    } else { // so if modules_to_run does NOT contain cutadapt
+        if(modules_to_run.contains('fastqc_cutadapt')) {
+            if(modules_to_run.contains('fastqc')){
+                exit 1, 'ERROR: The fastqc and fastqc_cutadapt modules may not be specified together unless the cutadapt module is also present'
+            } else {
+                if(params.input.endsWith('cutadapt/')){
+                    ch_fastqc_dir = 'fastqc_cutadapt'
+                    FASTQC_CUTADAPT(
+                        ch_reads,
+                        ch_fastqc_dir
+                    )
+                    // Update versions
+                    ch_versions = ch_versions.mix(FASTQC_CUTADAPT.out.versions.first())
+                } else {
+                    exit 1, 'ERROR: The fastqc_cutadapt module is specified without the cutadapt module, and the input files are not stored in a cutadapt/ directory. Update the input directory and the suffix parameters to feed the trimmed files into fastqc_cutadapt directly.'
+                }
+            }
         }
     }
 
