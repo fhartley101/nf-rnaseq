@@ -258,8 +258,10 @@ workflow {
     //---------------------------------------------    
 
     if(modules_to_run.contains('cutadapt')){
+        ch_cutadapt_options = Channel.fromPath(params.cutadapt_options, type: 'file')
 	CUTADAPT(
-            ch_reads
+            ch_reads,
+            ch_cutadapt_options.collect()
         )
         // Update 
 	ch_reads = CUTADAPT.out.reads
