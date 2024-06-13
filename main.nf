@@ -38,8 +38,8 @@ def helpMessage() {
             --transcriptome     FILEPATH            FASTA file containing the transcriptome (can be a gzip file)
             --salmon_index      DIRPATH             Folder containing the index on the transcriptome. If empty
                                                     a new index will be automatically generated
-            --modules           STRING              The pipeline modules to run (default: 'fastqc,quant,multiqc').
-                                                    Available modules are: fastqc, quant, multiqc
+            --modules           STRING              The pipeline modules to run (default: 'fastqc,cutadapt,fastqc_cutadapt,quant,multiqc').
+                                                    Available modules are: fastqc, cutadapt, fastqc_cutadapt, quant, multiqc
 
         Optional arguments:
             --filext            STRING              Extension of input files (default: fq.gz)
@@ -50,6 +50,8 @@ def helpMessage() {
                                                     lanes)
             --prefix            STRING              Regular expression used to identify groups of multiple
                                                     files to concatenate (e.g., --prefix LANE(\\d+)_)
+            --cutadapt_options FILEPATH		           File containing a single line of options to be fed into cutadapt. 
+						                                              Input/output files do not need to be specified.
             --species           STRING              Species of the samples (e.g., --species hsapiens). 
                                                     This parameter is used to create the output sub-folders 
                                                     and to download genome/transcriptome data (if required)
@@ -107,6 +109,9 @@ def initialLogMessage() {
     if (params.suffix2       ) log.info "suffix2        = ${params.suffix2}"
     if (params.filext        ) log.info "filext         = ${params.filext}"
     if (params.outdir        ) log.info "outdir         = ${params.outdir}"
+
+    log.info "\nCUTADAPT ------------------------------"
+    if (params.cutadapt_options) log.info "cutadapt_options = ${params.cutadapt_options}"
 
     log.info "\nREFERENCES ------------------------------"   
     if (params.species       ) log.info "species        = ${params.species}"
@@ -170,11 +175,13 @@ def modules_to_run = params.modules ? "${params.modules}".split(',') : []
 /*************************************************
 * IMPORT MODULES
 **************************************************/
-include { FASTQC            } from './modules/fastqc'
-include { MULTIQC           } from './modules/multiqc'
-include { SALMON_QUANT      } from './modules/salmon/quant'
-include { TXIMPORT_SALMON   } from './modules/tximport/salmon'
-include { SOFTWARE_VERSIONS } from './modules/custom/swversions'
+include { FASTQC                    } from './modules/fastqc'
+include { MULTIQC                   } from './modules/multiqc'
+include { CUTADAPT	            } from './modules/cutadapt'
+include { FASTQC as FASTQC_CUTADAPT } from './modules/fastqc'
+include { SALMON_QUANT              } from './modules/salmon/quant'
+include { TXIMPORT_SALMON           } from './modules/tximport/salmon'
+include { SOFTWARE_VERSIONS         } from './modules/custom/swversions'
 
 /*************************************************
 * IMPORT SUBWORKFLOWS
@@ -225,12 +232,14 @@ workflow {
     //---------------------------------------------
     // FastQC
     //---------------------------------------------
-    ch_fastqc = Channel.empty()
+    
+    ch_fastqc_dir = 'fastqc'
     if(modules_to_run.contains('fastqc')){
         FASTQC(
-            ch_reads
+            ch_reads,
+            ch_fastqc_dir
         )
-        // ch_fastqc = FASTQC.out.zip.view(it -> "[FASTQC] $it")
+
         // Update versions
         ch_versions = ch_versions.mix(FASTQC.out.versions.first())
     }
@@ -242,6 +251,38 @@ workflow {
         // Update
         ch_reads = CONCATENATE_READS.out.reads
         ch_versions = ch_versions.mix(CONCATENATE_READS.out.versions)
+    }
+
+    //---------------------------------------------
+    // Adapter trimming
+    //---------------------------------------------    
+    if(modules_to_run.contains('cutadapt')){
+        ch_cutadapt_options = Channel.fromPath(params.cutadapt_options, type: 'file')
+	CUTADAPT(
+            ch_reads,
+            ch_cutadapt_options.collect()
+        )
+        // Update 
+	ch_reads = CUTADAPT.out.reads
+        ch_versions = ch_versions.mix(CUTADAPT.out.versions.first())
+    }
+
+    if(modules_to_run.contains('fastqc_cutadapt')){
+        if(modules_to_run.contains('fastqc') && !modules_to_run.contains('cutadapt')){
+            exit 1, 'ERROR: The fastqc and fastqc_cutadapt modules may not be specified together unless the cutadapt module is also present'
+        }
+
+        if(modules_to_run.contains('cutadapt') | params.input.endsWith('cutadapt/')){
+            ch_fastqc_dir = 'fastqc_cutadapt'
+            FASTQC_CUTADAPT(
+                ch_reads,
+                ch_fastqc_dir
+            )
+            // Update versions
+            ch_versions = ch_versions.mix(FASTQC_CUTADAPT.out.versions.first())
+        } else {
+            exit 1, 'ERROR: The fastqc_cutadapt module is specified without the cutadapt module, and the input files are not stored in a cutadapt/ directory. Update the input directory and the suffix parameters to feed the trimmed files into fastqc_cutadapt directly.'
+        }
     }
 
     //---------------------------------------------
@@ -261,7 +302,6 @@ workflow {
             Channel.value(params.salmon_libtype)
         )
         // Update channels
-        ch_salmon_multiqc = SALMON_QUANT.out.quant
         ch_versions = ch_versions.mix(SALMON_QUANT.out.versions.first())
 
         // Summarisation at gene-level
@@ -273,9 +313,6 @@ workflow {
             // Update channels
             ch_versions = ch_versions.mix(TXIMPORT_SALMON.out.versions)
         }
-
-    } else {
-        ch_salmon_multiqc = Channel.empty()
     }
 
     //---------------------------------------------
@@ -300,10 +337,10 @@ workflow {
         //so that they are correctly staged.
         MULTIQC(
             ch_multiqc_config,
-            SOFTWARE_VERSIONS.out.multiqc_yml.collect(),
-            ch_fastqc.collect{it[1]}.ifEmpty([]),
-            ch_salmon_multiqc.collect{it[1]}.ifEmpty([])
+            SOFTWARE_VERSIONS.out.multiqc_yml.collect().ifEmpty(file('NO_FILE'))
         )
+        // Update channels
+        ch_versions = ch_versions.mix(MULTIQC.out.versions)
     }
 }
 
