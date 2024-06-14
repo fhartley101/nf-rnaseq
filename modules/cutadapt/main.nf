@@ -20,8 +20,7 @@ process CUTADAPT {
     /*********** INPUT ***********/
     input:
         tuple val(meta), path(reads1), path(reads2)
-        path cutadapt_options
-    
+	    
     /*********** OUTPUT ***********/
     //Define output channels and assign identifiers
     output:
@@ -37,52 +36,47 @@ process CUTADAPT {
         def files1 = reads1.join(' ')
         def files2 = reads2.join(' ')
 	
-    if(meta.single_end){
-        log.info "Cutadapt running on single end data"
-
-        """
-        #!/usr/bin/env bash
-
-        cat ${cutadapt_options} > ops
-        VAR="\$(cat ops)"
-
-        cutadapt \\
-            -o ${meta.id}_1.trimmed.${params.filext} \\
-            ${args} \\
-            \$VAR \\
-            ${files1} 1>> ${meta.id}_info.txt
-
-        sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
-
-        cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            cutadapt: \$(echo \$(cutadapt --version))
-        END_VERSIONS
-
-        """
-        } else {
-        log.info "Cutadapt running on paired end data"
-
-        """
-        #!/usr/bin/env bash
-
-        cat ${cutadapt_options} > ops
-        VAR="\$(cat ops)"
+	if(meta.single_end){
 	
-        cutadapt \\
-            -o ${meta.id}_1.trimmed.${params.filext} \\
-            -p ${meta.id}_2.trimmed.${params.filext} \\
-            ${args} \\
-            \$VAR \\
-            ${files1} ${files2} 1>> ${meta.id}_info.txt
-
-        sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
+	log.info "Cutadapt running on single end data with: ${args}"
 	
-        cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            cutadapt: \$(echo \$(cutadapt --version))
-        END_VERSIONS
+	"""
+	#!/usr/bin/env bash
+	
+    cutadapt \\
+        -o ${meta.id}_1.trimmed.${params.filext} \\
+        ${args} \\
+        ${files1} 1>> ${meta.id}_info.txt
+	
+	sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
+	
+	cat <<-END_VERSIONS > versions.yml
+	"${task.process}":
+	    cutadapt: \$(echo \$(cutadapt --version))
+	END_VERSIONS
+        
+	"""
+	
+	} else {
+	
+	log.info "Cutadapt running on paired end data with: ${args}"
+	
+	"""
+	#!/usr/bin/env bash
+	
+    cutadapt \\
+        -o ${meta.id}_1.trimmed.${params.filext} \\
+	    -p ${meta.id}_2.trimmed.${params.filext} \\
+        ${args} \\
+	    ${files1} ${files2} 1>> ${meta.id}_info.txt
+
+	sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
+	
+	cat <<-END_VERSIONS > versions.yml
+	"${task.process}":
+	    cutadapt: \$(echo \$(cutadapt --version))
+	END_VERSIONS
         """
-    }
-    
+	}
+	 
 }

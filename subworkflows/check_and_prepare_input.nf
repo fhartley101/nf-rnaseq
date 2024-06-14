@@ -34,6 +34,7 @@ def create_channel_from_dir(String dirpath, String filext, String suffix1, Strin
             //Create input channel
             ch_reads = Channel
                 .fromFilePairs(reads)
+
             // Replace prefix, suffix and file extension
             ch_reads = ch_reads.map { 
                 it -> [
@@ -112,7 +113,7 @@ def downloadFile(String aUrl, String aPath, String aFileName, Boolean printLog){
         log.info "File path: ${aFilePath}"
         // Check if dir exists
         if( !file(aPath).exists() ){
-            if(printLog) log.info "The directory where to store reference data DOES NOT exists and will be created"
+            if(printLog) log.info "The directory in which to store reference data DOES NOT exist and will be created"
             (new File( aPath )).mkdirs()
         }
         if(printLog) log.info "Downloading the file"
@@ -155,7 +156,7 @@ def getGtfUrl(species){
 }
 
 def supported_species = ["homo_sapiens", "hsapiens", "mus_musculus", "mus_musculus_fvbnj"]
-def supported_modules = ["fastqc", "cutadapt", "fastqc_cutadapt", "quant", "multiqc"]
+def supported_modules = ["fastqc", "cutadapt", "fastqc_cutadapt", "salmon", "star", "multiqc"]
 def raw_reads_filext = ['fastq', 'fq', 'fastq.gz', 'fq.gz']
 def aligned_reads_filext    = ['bam', 'sam']
 def supported_filext  = raw_reads_filext + aligned_reads_filext
@@ -167,6 +168,7 @@ def modules_to_run = params.modules ? "${params.modules}".split(',') : []
 **************************************************/
 include { CREATE_DECOYS_FILE } from '../modules/salmon/decoys'
 include { SALMON_INDEX       } from '../modules/salmon/index'
+include { STAR_INDEX         } from '../modules/star/index'
 include { TX2GENE            } from '../modules/genomicfeatures/tx2gene'
 
 /*************************************************
@@ -180,6 +182,7 @@ workflow CHECK_AND_PREPARE_INPUT {
         //---------------------------------------------
         ch_reads         = Channel.empty()
         ch_salmon_index  = Channel.empty()
+        ch_star_index    = Channel.empty()
         ch_genome        = Channel.empty()
         ch_transcriptome = Channel.empty()
         ch_gtf           = Channel.empty()
@@ -196,6 +199,7 @@ workflow CHECK_AND_PREPARE_INPUT {
 
         def download_transcriptome = false
         def download_genome = false
+        def download_gtf = false
 
         //---------------------------------------------
         // CHECK READS
@@ -218,10 +222,10 @@ workflow CHECK_AND_PREPARE_INPUT {
         //Modules to run
         if( modules_to_run.size() > 0 ){
             if (! supported_modules.containsAll(modules_to_run) ){
-                error "ERROR: provided pipeline modules not matching supported types. Available options: 'fastqc', 'cutadapt', 'fastqc_cutadapt', 'quant', 'multiqc'. Example: --modules fastqc,quant"
+                error "ERROR: provided pipeline modules not matching supported types. Available options: 'fastqc', 'cutadapt', 'fastqc_cutadapt', 'salmon', 'star', 'multiqc'. Example: --modules fastqc,salmon"
             }
         } else {
-            //error "ERROR: no pipeline module was selected to run. Available options: 'fastqc', 'cutadapt', 'fastqc_cutadapt', 'quant', 'multiqc'. Example: --modules fastqc,quant"
+            //error "ERROR: no pipeline module was selected to run. Available options: 'fastqc', 'cutadapt', 'fastqc_cutadapt', 'salmon', 'star', 'multiqc'. Example: --modules fastqc,salmon"
             log.info "\nWARNING: no pipeline module was selected to run\n"
         }
 
@@ -251,28 +255,27 @@ workflow CHECK_AND_PREPARE_INPUT {
             download_genome = true
         }
 
-        if(modules_to_run.contains('quant')){
-            //SALMON INDEX
-            if (! params.salmon_index) { 
-                exit 1, 'ERROR: `salmon_index` not specified!' 
+        //GTF
+        if((params.gtf instanceof String) && file(params.gtf).exists()){
+            log.info "User-provided gtf file found"
+            ch_gtf = Channel.fromPath(params.gtf, checkIfExists: true, type: 'file')
+        } else {
+            ch_gtf = Channel.empty()
+            download_gtf = true
+        }
+
+        //---------------------------------------------
+        // SALMON INDEX
+        //---------------------------------------------
+
+        if(modules_to_run.contains('salmon')){
+            if (!params.salmon_index) { 
+                exit 1, 'ERROR: the salmon module is selected without `salmon_index`! If you would like an index to be generated for you, use --salmon_index with no argument' 
             } else {
-                def salmon_index = file(params.salmon_index)//returns file system object
-                if ( salmon_index.exists() && salmon_index.getExtension()=='gz') {
-                    log.info "Compressed salmon index found: decompressing"
-                    // Uncompress
-                    GUNZIP(
-                        salmon_index
-                    )
-                    // Update
-                    salmon_index = GUNZIP.out.decompressed
-                } 
-                
-                if ( salmon_index.exists() && salmon_index.isDirectory() && salmon_index.listFiles().size() > 0) {
-                    log.info "Salmon index directory found and not empty"
-                    ch_salmon_index = salmon_index
-                } else {
-                    log.info "Salmon index directory not found or empty: a new transcriptome index will be created"
-                    
+                // SALMON INDEX
+                if(params.salmon_index == true) {
+                    log.info "Salmon index not specified: a new index will be created"
+
                     // Check transcriptome
                     if( download_transcriptome ){
                         //Download
@@ -285,17 +288,16 @@ workflow CHECK_AND_PREPARE_INPUT {
                         def url = getTranscriptomeUrl(params.species)
                         // Download file
                         transcriptomeFilePath = downloadFile(
-                            url, 
-                            refdir, 
+                            url,
+                            refdir,
                             null,
                             true
                         )
                         // Update channel
                         ch_transcriptome = Channel
                             .fromPath(transcriptomeFilePath, checkIfExists: true, type: 'file')
-                    } 
-                    
-                    
+                    }
+
                     // Check genome
                     if( download_genome ){
                         //Download
@@ -308,8 +310,8 @@ workflow CHECK_AND_PREPARE_INPUT {
                         def url = getGenomeUrl(params.species)
                         // Download file
                         genomeFilePath = downloadFile(
-                            url, 
-                            refdir, 
+                            url,
+                            refdir,
                             null,
                             true
                         )
@@ -324,15 +326,12 @@ workflow CHECK_AND_PREPARE_INPUT {
                             log.info "Decoys file found"
                             ch_decoys = Channel.fromPath(params.decoys, type: 'file')
                         } else {
-
-
+                                if(params.decoys instanceof String){
+                                        fn_decoys = file(params.decoys).name
+                                } else {
+                                        fn_decoys = "decoys.txt"
+                                }
                             log.info "Decoys file not found. A decoys file will be generated."
-
-                            if(params.decoys instanceof String){
-                                fn_decoys = file(params.decoys).name
-                            } else {
-                                fn_decoys = "decoys.txt"
-                            }
 
                             // Create decoys file.
                             CREATE_DECOYS_FILE(
@@ -361,17 +360,35 @@ workflow CHECK_AND_PREPARE_INPUT {
                     ch_salmon_index = SALMON_INDEX.out.index
 
                     // Update versions
-                    ch_versions = ch_versions.mix(SALMON_INDEX.out.versions)     
+                    ch_versions = ch_versions.mix(SALMON_INDEX.out.versions)
+                
+                } else {
+                    salmon_index = file(params.salmon_index)
+                    if (salmon_index.exists() && salmon_index.getExtension()=='gz'){
+                        log.info "Compressed salmon index found: decompressing"
+                        // Uncompress
+                        GUNZIP(
+                            salmon_index
+                        )
+                        // Update
+                        salmon_index = GUNZIP.out.decompressed //possible issue here - should this be ch_salmon_index, or do we want it to go through the next steps?
+                    }
+                    if (salmon_index.exists() && salmon_index.isDirectory() && salmon_index.listFiles().size() > 0){
+                        log.info "Salmon index directory found and not empty"
+                        ch_salmon_index = salmon_index
+                    } else {
+                        exit 1, 'ERROR: the `salmon_index` specified does not exist, is not a directory, or is empty. If you would like an index to be generated for you, use --salmon_index with no argument'
+                    }
                 }
-            }
+            }   
 
-            //GTF
+            // GTF
             if(params.gtf){
                 if((params.gtf instanceof String) && file(params.gtf).exists()){
                     log.info "User-provided gtf file found"
                     ch_gtf = Channel.fromPath(params.gtf, checkIfExists: true, type: 'file')
                 } else {
-                    //Download
+                    // Download
                     log.info "User-provided gtf file not found: try to download it"
                     // Check species
                     if( !params.species ){
@@ -386,6 +403,7 @@ workflow CHECK_AND_PREPARE_INPUT {
                         null,
                         true
                     )
+
                     // Update channel
                     ch_gtf = Channel
                         .fromPath(gtfFilePath, checkIfExists: true, type: 'file')
@@ -400,7 +418,7 @@ workflow CHECK_AND_PREPARE_INPUT {
                     log.info "User-provided genemap file found"
                     ch_genemap = Channel.fromPath(params.genemap, checkIfExists: true, type: 'file')
                 } else if(ch_gtf){
-                    // Create from GTF
+                    // Create genemap from GTF
                     log.info "User-provided genemap file not found: try to create it from GTF file"
                     // Process GTF
                     TX2GENE(ch_gtf)
@@ -416,12 +434,94 @@ workflow CHECK_AND_PREPARE_INPUT {
             }
         }
 
+        //---------------------------------------------
+        // STAR INDEX
+        //---------------------------------------------
 
+        if(modules_to_run.contains('star')){
+            if(!(params.stranded in [0,1,2])){
+                exit 1, 'ERROR: the star module is selected, but the --stranded option is missing. Specifiy the strandedness of the library for featureCounts quantification.'
+            }
+            if(!params.star_index){
+                exit 1, 'ERROR: the star module is selected without `star_index`! If you would like an index to be generated for you, use --star_index with no argument'
+            } else {
+                // STAR INDEX
+                if(params.star_index == true) {
+                    log.info "STAR index not specified: a new index will be created"
+                    
+                    // Check GTF
+                    if( download_gtf ){
+                        log.info "User-provided GTF file not found: try to download it"
+                        // Check species
+                        if( !params.species ){
+                            exit 1, "ERROR: `species` not specified!"
+                        }
+                        // Get URL
+                        def url = getGtfUrl(params.species)
+                        // Download file
+                        gtfFilePath = downloadFile(
+                            url,
+                            refdir,
+                            null,
+                            true
+                        )
+                        // Update channel
+                        ch_gtf = Channel
+                            .fromPath(gtfFilePath, checkIfExists: true, type: 'file')
+                    }
+
+                    // Check genome
+                    if( download_genome ){
+                        log.info "User-provided genome file not found: try to download it"
+                        // Check species
+                        if( !params.species ){
+                            exit 1, "ERROR: `species` not specified!"
+                        }
+                        // Get URL
+                        def url = getGenomeUrl(params.species)
+                        // Download file
+                        genomeFilePath = downloadFile(
+                            url,
+                            refdir,
+                            null,
+                            true
+                        )
+
+                        // Update channel
+                        ch_genome = Channel
+                            .fromPath(genomeFilePath, checkIfExists: true, type: 'file')
+                    }
+
+                    // Create index
+                    STAR_INDEX(
+                        ch_gtf,
+                        ch_genome
+                    )
+
+                    // Output channel
+                    ch_star_index = STAR_INDEX.out.index
+
+                    // Update versions
+                    ch_versions = ch_versions.mix(STAR_INDEX.out.versions)
+                    
+                } else {
+                    star_index = file(params.star_index)
+                    if (star_index.exists() && star_index.isDirectory() && star_index.listFiles().size() > 0){
+                        log.info "STAR index directory found and not empty"
+                        ch_star_index = star_index
+                    } else {
+                        exit 1, 'ERROR: the `star_index` specified does not exist, is not a directory, or is empty. If you would like an index to be generated for you, use --star_index with no argument'
+                    }
+                }
+            }
+        }
+        
 
 
     emit:
         reads         = ch_reads            // channel: [ val(meta), [ reads1 ], [ reads2 ] ]
         salmon_index  = ch_salmon_index     // channel: /path/to/salmon/index
+        star_index    = ch_star_index       // channel: /path/to/star/index
         genome        = ch_genome           // channel: /path/to/genome.fa.gz
         transcriptome = ch_transcriptome    // channel: /path/to/transcriptome.fa.gz
         gtf           = ch_gtf              // channel: /path/to/gtf.gtf

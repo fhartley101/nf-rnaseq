@@ -9,7 +9,7 @@ process CREATE_DECOYS_FILE {
     //Annotate process with identifier
     label "process_low"
     //Specifies where to publish output
-    publishDir path: "${params.outdir}/index/${params.species}" , mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
+    publishDir path: "${params.outdir}/index" , mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
     
     /*********** INPUT ***********/
     input:
@@ -63,9 +63,9 @@ process CREATE_DECOYS_FILE {
 
             cat <<-END_VERSIONS > versions.yml
             "${task.process}":
-                gunzip: \$(gunzip --version 2>&1)
-                cut: echo \$(cut --version 2>&1) | sed 's/^.*(cut) //; s/ Copyright.*\$//'
-                grep: \$(grep --version 2>&1) 
+                gunzip: \$(gunzip --version 2>&1 | head -n 1 | sed -e 's/^.*gzip) //g' )
+                cut: \$(cut --version 2>&1 | head -n 1 | sed -e 's/^.*coreutils) //g' )
+                grep: \$(grep --version 2>&1 | head -n 1 | sed -e 's/^.*grep) //g' ) 
             END_VERSIONS
 
             """
@@ -81,8 +81,8 @@ process CREATE_DECOYS_FILE {
 
             cat <<-END_VERSIONS > versions.yml
             "${task.process}":
-                grep: \$(grep --version 2>&1)
-                cut: echo \$(cut --version 2>&1) | sed 's/^.*(cut) //; s/ Copyright.*\$//'
+                cut: \$(cut --version 2>&1 | head -n 1 | sed -e 's/^.*coreutils) //g')
+                grep: \$(grep --version 2>&1 | head -n 1 | sed -e 's/^.*grep) //g' )
             END_VERSIONS
             """
         }

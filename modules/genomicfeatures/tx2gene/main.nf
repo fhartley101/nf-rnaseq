@@ -13,7 +13,7 @@ process TX2GENE {
         'https://depot.galaxyproject.org/singularity/bioconductor-genomicfeatures:1.50.2--r42hdfd78af_0' :
         'quay.io/biocontainers/bioconductor-genomicfeatures:1.50.2--r42hdfd78af_0'}"
     //Specifies where to publish output
-    publishDir path: "${params.outdir}/ref/${params.species}/" , mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
+    publishDir path: "${params.outdir}/ref/" , mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
     
     /*********** INPUT ***********/
     input:
