@@ -5,7 +5,7 @@ process GENECOUNTS {
     //Set to true to forward process stdout to the current top stdout
     debug false
     //Associate process execution with custom label
-    tag "TXIMPORT_SALMON"
+    tag "GENECOUNTS"
     //Annotate process with identifier
     label "process_medium"
     //Process dependencies
