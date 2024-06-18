@@ -326,11 +326,11 @@ workflow CHECK_AND_PREPARE_INPUT {
                             log.info "Decoys file found"
                             ch_decoys = Channel.fromPath(params.decoys, type: 'file')
                         } else {
-                                if(params.decoys instanceof String){
-                                        fn_decoys = file(params.decoys).name
-                                } else {
-                                        fn_decoys = "decoys.txt"
-                                }
+                            if(params.decoys instanceof String){
+                                fn_decoys = file(params.decoys).name
+                            } else {
+                                fn_decoys = "decoys.txt"
+                            }
                             log.info "Decoys file not found. A decoys file will be generated."
 
                             // Create decoys file.
