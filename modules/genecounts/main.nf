@@ -9,7 +9,7 @@ process GENECOUNTS {
     //Annotate process with identifier
     label "process_medium"
     //Process dependencies
-    //conda "bioconda::bioconductor-tximeta=1.12.0"
+    conda "conda-forge::pandas=2.2.2" // N.B A different version is used here than in Singularity/Docker
     //To execute the script in a Singularity or Docker container
     container "${ workflow.containerEngine == 'singularity' ?
         'https://depot.galaxyproject.org/singularity/pandas:1.5.2' : 
