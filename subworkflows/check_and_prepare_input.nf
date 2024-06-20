@@ -371,7 +371,7 @@ workflow CHECK_AND_PREPARE_INPUT {
                             salmon_index
                         )
                         // Update
-                        salmon_index = GUNZIP.out.decompressed //possible issue here - should this be ch_salmon_index, or do we want it to go through the next steps?
+                        salmon_index = GUNZIP.out.decompressed
                     }
                     if (salmon_index.exists() && salmon_index.isDirectory() && salmon_index.listFiles().size() > 0){
                         log.info "Salmon index directory found and not empty"
