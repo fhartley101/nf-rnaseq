@@ -20,7 +20,6 @@ process CUTADAPT {
     /*********** INPUT ***********/
     input:
         tuple val(meta), path(reads1), path(reads2)
-        path cutadapt_options
     
     /*********** OUTPUT ***********/
     //Define output channels and assign identifiers
@@ -38,18 +37,15 @@ process CUTADAPT {
         def files2 = reads2.join(' ')
 	
     if(meta.single_end){
-        log.info "Cutadapt running on single end data"
+        log.info "Cutadapt running on single end data with: ${args}"
 
         """
         #!/usr/bin/env bash
 
-        cat ${cutadapt_options} > ops
-        VAR="\$(cat ops)"
-
         cutadapt \\
             -o ${meta.id}_1.trimmed.${params.filext} \\
+            --cores=0 \\
             ${args} \\
-            \$VAR \\
             ${files1} 1>> ${meta.id}_info.txt
 
         sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt
@@ -61,19 +57,16 @@ process CUTADAPT {
 
         """
         } else {
-        log.info "Cutadapt running on paired end data"
+        log.info "Cutadapt running on paired end data with: ${args}"
 
         """
         #!/usr/bin/env bash
-
-        cat ${cutadapt_options} > ops
-        VAR="\$(cat ops)"
 	
         cutadapt \\
             -o ${meta.id}_1.trimmed.${params.filext} \\
             -p ${meta.id}_2.trimmed.${params.filext} \\
+            --cores=0 \\
             ${args} \\
-            \$VAR \\
             ${files1} ${files2} 1>> ${meta.id}_info.txt
 
         sed -i "2s/\$/ # ${meta.id}.fastq.gz/" ${meta.id}_info.txt

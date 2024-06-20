@@ -115,9 +115,11 @@ custom_css_files: []
 # To speed up MultiQC only use the modules that you know you have files for
 run_modules:
   - custom_content
-  - fastqc
   - cutadapt
+  - fastqc
   - salmon
+  - star
+  - featureCounts
 
 # Change the order of MultiQC module subsection outputs
 report_section_order:
@@ -145,6 +147,8 @@ module_order:
       path_filters:
         - "fastqc_cutadapt/*trimmed_fastqc.zip"
   - salmon
+  - star
+  - featureCounts
 
 # SEARCH PATTERNS
 # Overwrite module filename search patterns. See multiqc/utils/search_patterns.yaml

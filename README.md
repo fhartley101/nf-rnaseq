@@ -9,9 +9,11 @@ The pipeline is built using the [Nextflow](https://www.nextflow.io) Workflow Man
 ## Pipeline Summary
 
 1. Read QC ([FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
-2. Pseudo-alignment and transcript-level quantification ([Salmon](https://combine-lab.github.io/salmon/))
-3. Gene-level summarization ([tximport](https://bioconductor.org/packages/tximport/))
-4. Summarize QC Reports ([MultiQC)](https://multiqc.info/)
+2. Adapter trimming ([Cutadapt](https://cutadapt.readthedocs.io/en/stable/index.html))
+3. Post-trimming QC ([FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
+4. Pseudo-alignment, transcript-level quantification, and gene-level summarization ([Salmon](https://combine-lab.github.io/salmon/), [tximport](https://bioconductor.org/packages/tximport/))
+5. Alignment and gene-level quantification ([STAR](https://github.com/alexdobin/STAR), [featureCounts](https://subread.sourceforge.net/SubreadUsersGuide.pdf))
+6. Summarize QC Reports ([MultiQC)](https://multiqc.info/)
 
 ## Install
 
@@ -57,24 +59,21 @@ version 0.0.9000
 Usage:
 The typical command for running the pipeline is as follows:
 
-    nextflow run main.nf --input /path/to/samples --transcriptome /path/to/transcriptome --salmon_index /path/to/index [OPTIONS]
+    nextflow run nf-rnaseq -profile <conda/docker/singularity> --modules salmon --input /path/to/samples --transcriptome /path/to/transcriptome --salmon_index /path/to/index [OPTIONS]
 
 Mandatory arguments:
     --input             DIRPATH             Folder containing FASTQ files, or file with
                                             4 columns: id, read_1, read_2, library_type
-    --transcriptome     FILEPATH            FASTA file containing the transcriptome (can be a gzip file)
-    --salmon_index      DIRPATH             Folder containing the index on the transcriptome. If empty
-                                            a new index will be automatically generated
-    --modules           STRING              The pipeline modules to run (default: 'fastqc,quant,multiqc').
-                                            Available modules are: fastqc, quant, multiqc
+    -profile            STRING              Container to use, one of conda, singularity, or docker.
 
 Optional arguments:
+    --modules           STRING              The pipeline modules to run. By default, all available modules will run 
+                                            ('--modules fastqc,cutadapt,fastqc_cutadapt,salmon,star,multiqc').
     --filext            STRING              Extension of input files (default: fq.gz)
     --suffix1           STRING              Suffix of first file in paired reads (default: _1)
     --suffix2           STRING              Suffix of second file in paired reads (default: _2)
     --concatenate       BOOLEAN             Whether to concatenate input files when multiple files 
-                                            per sample id are found (e.g., files from different
-                                            lanes)
+                                            per sample id are found (e.g., files from different lanes)
     --prefix            STRING              Regular expression used to identify groups of multiple
                                             files to concatenate (e.g., --prefix LANE(\d+)_)
     --species           STRING              Species of the samples (e.g., --species hsapiens). 
@@ -82,15 +81,28 @@ Optional arguments:
                                             and to download genome/transcriptome data (if required)
     --refdir            DIRPATH             Folder with reference transcriptome and (optional) genome
     --decoys           [FILEPATH]           File containing a set of decoy sequences. If the parameter is
-                                            provided without value (i.e., --decoys), a set of decoys
-                                            is attempted to be computed from the transcriptome and genome
-                                            files
+                                            provided without value (i.e. --decoys), a set of decoys
+                                            will be computed from the transcriptome and genome files.
     --genome            FILEPATH            FASTA file containing the genome (can be a gzip file)
-    --gtf               FILEPATH            Gene Transfer Format file (can be used to generate a genemap)
-    --genemap          [FILEPATH]           File containing a mapping of transcripts to genes. If the 
-                                            parameter is provided without a value (i.e., --genemap),
-                                            and a GTF file is provided in input, a mapping is attempted
-    --salmon_libtype    STRING              Library type, used for salmon quantification (default: 'A') 
+    --transcriptome     FILEPATH            FASTA file containing the transcriptome (can be a gzip file)
+    --gtf               FILEPATH            Gene Transfer Format file (can be a gzip file)
+    --genemap          [FILEPATH]           File containing a mapping of transcripts to genes used if the salmon 
+                                            module is selected.  If the parameter is provided without a
+                                            value (i.e. --genemap), and a GTF file is provided in input,
+                                            mapping is attempted.
+    --salmon_index      [DIRPATH]           Folder containing the salmon index. If the parameter is provided
+                                            without a value (i.e. --salmon_index), an index will be generated
+                                            from the transcriptome and genome files. This is a mandatory 
+                                            argument if salmon is selected.
+    --star_index        [DIRPATH]           Folder containing the STAR index. If the parameter is provided
+                                            without a value (i.e. --star_index), an index will be generated
+                                            from the genome and GTF files. This is a mandatory argument
+                                            if star is selected.                                            
+    --salmon_libtype    STRING              Library type, used for salmon quantification (default: 'A')
+    --stranded          STRING              A single integer denoting the strandedness of the reads for 
+                                            featureCounts quantification. Possible values include:
+                                            0 (unstranded), 1 (stranded) and 2 (reversely stranded).
+                                            This is a mandatory argument if star alignment is selected.
     --multiqc_config    FILEPATH            Config yaml file for MultiQC
     --outdir            DIRPATH             Output directory (default: ./results)
     --cachedir          DIRPATH             Provide a centralised cache directory for containers (default: ./work)

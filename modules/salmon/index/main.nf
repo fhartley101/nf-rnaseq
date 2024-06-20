@@ -15,7 +15,7 @@ process SALMON_INDEX {
         'https://depot.galaxyproject.org/singularity/salmon:1.10.0--h7e5ed60_0' : 
         'quay.io/biocontainers/salmon:1.10.0--h7e5ed60_0'}"
     //Specifies where to publish output
-    publishDir path: "${params.outdir}/index/${params.species}", mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
+    publishDir path: "${params.outdir}/salmon", mode: "${params.publishdir_mode}", overwrite: true, followLinks: true
     
     /*********** INPUT ***********/
     input:
@@ -26,7 +26,7 @@ process SALMON_INDEX {
     /*********** OUTPUT ***********/
     //Define output channels and assign identifiers
     output:
-        path "./salmon"     , emit: index
+        path "./index"     , emit: index
         path "versions.yml" , emit: versions
     
     /*********** SCRIPT ***********/
@@ -66,7 +66,7 @@ process SALMON_INDEX {
             -t ${gentrome} \
             ${idecoys} \
             ${args} \
-            -i salmon
+            -i index
 
         cat <<-END_VERSIONS > versions.yml
         "${task.process}":

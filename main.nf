@@ -30,42 +30,51 @@ def helpMessage() {
         Usage:
         The typical command for running the pipeline is as follows:
 
-            nextflow run main.nf --input /path/to/samples --transcriptome /path/to/transcriptome --salmon_index /path/to/index [OPTIONS]
+            nextflow run nf-rnaseq -profile <conda/docker/singularity> --modules salmon --input /path/to/samples --transcriptome /path/to/transcriptome --salmon_index /path/to/index [OPTIONS]
 
         Mandatory arguments:
             --input             DIRPATH             Folder containing FASTQ files, or file with
                                                     4 columns: id, read_1, read_2, library_type
-            --transcriptome     FILEPATH            FASTA file containing the transcriptome (can be a gzip file)
-            --salmon_index      DIRPATH             Folder containing the index on the transcriptome. If empty
-                                                    a new index will be automatically generated
-            --modules           STRING              The pipeline modules to run (default: 'fastqc,cutadapt,fastqc_cutadapt,quant,multiqc').
-                                                    Available modules are: fastqc, cutadapt, fastqc_cutadapt, quant, multiqc
+            -profile            STRING              Container to use, one of conda, singularity, or docker.
+
 
         Optional arguments:
+            --modules           STRING              The pipeline modules to run. By default, all available modules will run 
+                                                    ('--modules fastqc,cutadapt,fastqc_cutadapt,salmon,star,multiqc').
             --filext            STRING              Extension of input files (default: fq.gz)
             --suffix1           STRING              Suffix of first file in paired reads (default: _1)
             --suffix2           STRING              Suffix of second file in paired reads (default: _2)
             --concatenate       BOOLEAN             Whether to concatenate input files when multiple files 
-                                                    per sample id are found (e.g., files from different
-                                                    lanes)
+                                                    per sample id are found (e.g., files from different lanes)
             --prefix            STRING              Regular expression used to identify groups of multiple
-                                                    files to concatenate (e.g., --prefix LANE(\\d+)_)
-            --cutadapt_options FILEPATH		           File containing a single line of options to be fed into cutadapt. 
-						                                              Input/output files do not need to be specified.
+                                                    files to concatenate (e.g., --prefix LANE(\d+)_)
             --species           STRING              Species of the samples (e.g., --species hsapiens). 
                                                     This parameter is used to create the output sub-folders 
                                                     and to download genome/transcriptome data (if required)
             --refdir            DIRPATH             Folder with reference transcriptome and (optional) genome
             --decoys           [FILEPATH]           File containing a set of decoy sequences. If the parameter is
-                                                    provided without value (i.e., --decoys), a set of decoys
-                                                    is attempted to be computed from the transcriptome and genome
-                                                    files
+                                                    provided without value (i.e. --decoys), a set of decoys
+                                                    will be computed from the transcriptome and genome files.
             --genome            FILEPATH            FASTA file containing the genome (can be a gzip file)
-            --gtf               FILEPATH            Gene Transfer Format file (can be used to generate a genemap)
-            --genemap          [FILEPATH]           File containing a mapping of transcripts to genes. If the 
-                                                    parameter is provided without a value (i.e., --genemap),
-                                                    and a GTF file is provided in input, a mapping is attempted
-            --salmon_libtype    STRING              Library type, used for salmon quantification (default: 'A')                                         
+            --transcriptome     FILEPATH            FASTA file containing the transcriptome (can be a gzip file)
+            --gtf               FILEPATH            Gene Transfer Format file (can be a gzip file)
+            --genemap          [FILEPATH]           File containing a mapping of transcripts to genes used if the salmon 
+                                                    module is selected.  If the parameter is provided without a
+                                                    value (i.e. --genemap), and a GTF file is provided in input,
+                                                    mapping is attempted.
+            --salmon_index      [DIRPATH]           Folder containing the salmon index. If the parameter is provided
+                                                    without a value (i.e. --salmon_index), an index will be generated
+                                                    from the transcriptome and genome files. This is a mandatory 
+                                                    argument if salmon is selected.
+            --star_index        [DIRPATH]           Folder containing the STAR index. If the parameter is provided
+                                                    without a value (i.e. --star_index), an index will be generated
+                                                    from the genome and GTF files. This is a mandatory argument
+                                                    if star is selected.                                            
+            --salmon_libtype    STRING              Library type, used for salmon quantification (default: 'A')
+            --stranded          STRING              A single integer denoting the strandedness of the reads for 
+                                                    featureCounts quantification. Possible values include:
+                                                    0 (unstranded), 1 (stranded) and 2 (reversely stranded).
+                                                    This is a mandatory argument if star alignment is selected.
             --multiqc_config    FILEPATH            Config yaml file for MultiQC
             --outdir            DIRPATH             Output directory (default: ./results)
             --cachedir          DIRPATH             Provide a centralised cache directory for containers (default: ./work)
@@ -111,7 +120,7 @@ def initialLogMessage() {
     if (params.outdir        ) log.info "outdir         = ${params.outdir}"
 
     log.info "\nCUTADAPT ------------------------------"
-    if (params.cutadapt_options) log.info "cutadapt_options = ${params.cutadapt_options}"
+    //is there a way to add the args here
 
     log.info "\nREFERENCES ------------------------------"   
     if (params.species       ) log.info "species        = ${params.species}"
@@ -121,9 +130,11 @@ def initialLogMessage() {
     if (params.decoys        ) log.info "decoys         = ${params.decoys}"
     if (params.genemap       ) log.info "genemap        = ${params.genemap}"
     if (params.salmon_index  ) log.info "salmon_index   = ${params.salmon_index}"
+    if (params.star_index    ) log.info "star_index     = ${params.star_index}"
 
     log.info "\nQUANTIFICATION---------------------------"   
-    if (params.salmon_libtype) log.info "salmon_libtype     = ${params.salmon_libtype}"
+    if (params.salmon_libtype) log.info "salmon_libtype = ${params.salmon_libtype}"
+    if (params.stranded      ) log.info "strandedness   = ${params.stranded}"
 
     log.info "\nRESOURCES -------------------------------"   
     if (params.max_memory    ) log.info "max_memory     = ${params.max_memory}"
@@ -151,8 +162,10 @@ def initialLogMessage() {
     //     | species           = ${params.species}
     //     | genome            = ${params.genome}
     //     | transcriptome     = ${params.transcriptome}
+    //     | gtf               = ${params.gtf}
     //     | genemap           = ${params.genemap}
     //     | salmon_index      = ${params.salmon_index}
+    //     | star_index        = ${params.star_index}
     //     \\---------------------------------------------/
 
     // """.stripIndent()
@@ -181,6 +194,9 @@ include { CUTADAPT	            } from './modules/cutadapt'
 include { FASTQC as FASTQC_CUTADAPT } from './modules/fastqc'
 include { SALMON_QUANT              } from './modules/salmon/quant'
 include { TXIMPORT_SALMON           } from './modules/tximport/salmon'
+include { STAR_QUANT                } from './modules/star/quant'
+include { FEATURE_COUNTS            } from './modules/featureCounts'
+include { SUMMARISE_FEATURECOUNTS   } from './modules/summarise_featurecounts'
 include { SOFTWARE_VERSIONS         } from './modules/custom/swversions'
 
 /*************************************************
@@ -218,11 +234,14 @@ workflow {
     // Set channels
     ch_reads         = CHECK_AND_PREPARE_INPUT.out.reads
     ch_salmon_index  = CHECK_AND_PREPARE_INPUT.out.salmon_index
+    ch_star_index    = CHECK_AND_PREPARE_INPUT.out.star_index
     ch_transcriptome = CHECK_AND_PREPARE_INPUT.out.transcriptome
+    ch_gtf           = CHECK_AND_PREPARE_INPUT.out.gtf
     ch_genemap       = CHECK_AND_PREPARE_INPUT.out.genemap
     
     if(params.verbose) ch_reads.view(it -> "[READS] $it")
     if(params.verbose) ch_salmon_index.view(it -> "[INDEX] $it")
+    if(params.verbose) ch_star_index.view(it -> "[INDEX] $it")
     if(params.verbose) ch_transcriptome.view(it -> "[TRANSCRIPTOME] $it")
     if(params.verbose) ch_genemap.view(it -> "[GENEMAP] $it")
     
@@ -233,13 +252,12 @@ workflow {
     // FastQC
     //---------------------------------------------
     
-    ch_fastqc_dir = 'fastqc'
     if(modules_to_run.contains('fastqc')){
+        ch_fastqc_dir = 'fastqc'
         FASTQC(
             ch_reads,
             ch_fastqc_dir
         )
-
         // Update versions
         ch_versions = ch_versions.mix(FASTQC.out.versions.first())
     }
@@ -257,10 +275,8 @@ workflow {
     // Adapter trimming
     //---------------------------------------------    
     if(modules_to_run.contains('cutadapt')){
-        ch_cutadapt_options = Channel.fromPath(params.cutadapt_options, type: 'file')
 	CUTADAPT(
-            ch_reads,
-            ch_cutadapt_options.collect()
+            ch_reads
         )
         // Update 
 	ch_reads = CUTADAPT.out.reads
@@ -288,7 +304,7 @@ workflow {
     //---------------------------------------------
     // Pseudo-alignment and quantification
     //---------------------------------------------
-    if(modules_to_run.contains('quant')){
+    if(modules_to_run.contains('salmon')){
         // LOG
         // ch_salmon_index.ifEmpty([]).view(it -> "[SALMON INDEX] $it")
         // ch_transcriptome.ifEmpty([]).view(it -> "[TRANSCRIPTOME] $it")
@@ -313,7 +329,41 @@ workflow {
             // Update channels
             ch_versions = ch_versions.mix(TXIMPORT_SALMON.out.versions)
         }
+
     }
+
+    //---------------------------------------------
+    // STAR-alignment and quantification
+    //---------------------------------------------
+    
+    if(modules_to_run.contains('star')){
+        STAR_QUANT(
+            ch_reads,
+            ch_star_index.collect(),
+            ch_gtf.collect()
+        )
+        // Update
+        ch_bam = STAR_QUANT.out.bam_channel
+        ch_versions = ch_versions.mix(STAR_QUANT.out.versions.first())
+
+        FEATURE_COUNTS(
+            ch_bam,
+            ch_gtf.collect(),
+            Channel.value(params.stranded)
+        )
+
+        // Update
+        ch_featurecounts = FEATURE_COUNTS.out.featurecounts
+        ch_versions = ch_versions.mix(FEATURE_COUNTS.out.versions.first())
+
+        SUMMARISE_FEATURECOUNTS(
+            ch_featurecounts.collect{it[1]}
+        )
+
+        // Update
+        ch_versions = ch_versions.mix(SUMMARISE_FEATURECOUNTS.out.versions)
+    }
+
 
     //---------------------------------------------
     // Software versions
@@ -321,6 +371,7 @@ workflow {
     SOFTWARE_VERSIONS(
         ch_versions.unique().collectFile(name: 'merged_software_versions.yml')
     )
+
 
     //---------------------------------------------
     // MultiQC
@@ -333,8 +384,6 @@ workflow {
         ch_multiqc_config = params.multiqc_config ? ch_multiqc_custom_config : ch_multiqc_config
 
         //Run module
-        //Remember to provide in input all the files that we want to consider
-        //so that they are correctly staged.
         MULTIQC(
             ch_multiqc_config,
             SOFTWARE_VERSIONS.out.multiqc_yml.collect().ifEmpty(file('NO_FILE'))
@@ -342,6 +391,7 @@ workflow {
         // Update channels
         ch_versions = ch_versions.mix(MULTIQC.out.versions)
     }
+
 }
 
 //---------------------------------------------
