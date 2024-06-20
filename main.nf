@@ -119,9 +119,6 @@ def initialLogMessage() {
     if (params.filext        ) log.info "filext         = ${params.filext}"
     if (params.outdir        ) log.info "outdir         = ${params.outdir}"
 
-    log.info "\nCUTADAPT ------------------------------"
-    //is there a way to add the args here
-
     log.info "\nREFERENCES ------------------------------"   
     if (params.species       ) log.info "species        = ${params.species}"
     if (params.genome        ) log.info "genome         = ${params.genome}"
